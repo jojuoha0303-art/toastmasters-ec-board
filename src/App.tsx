@@ -563,12 +563,15 @@ const App: React.FC = () => {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<ColumnId | null>(null);
   const dragOverRef = useRef<ColumnId | null>(null);
+  // 削除・移動中のIDを追跡し、ポーリングで復活しないようにする
+  const pendingDeletes = useRef<Set<string>>(new Set());
 
   // 初回ロード＆ポーリング（30秒ごとに他デバイスの変更を反映）
   const fetchTopics = useCallback(async () => {
     try {
       const data = await api.getTopics();
-      setTopics(data.map(rowToTopic));
+      // 削除処理中のIDはポーリング結果から除外
+      setTopics(data.map(rowToTopic).filter(t => !pendingDeletes.current.has(t.id)));
       setDbError(null);
     } catch (e) {
       setDbError(`読み込みエラー: ${e instanceof Error ? e.message : String(e)}`);
@@ -598,8 +601,17 @@ const App: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
+    pendingDeletes.current.add(id);
     setTopics(prev => prev.filter(t => t.id !== id));
-    await api.deleteTopic(id).catch(() => fetchTopics());
+    try {
+      await api.deleteTopic(id);
+    } catch {
+      // 失敗したら元に戻す
+      pendingDeletes.current.delete(id);
+      fetchTopics();
+    } finally {
+      pendingDeletes.current.delete(id);
+    }
   };
 
   const handleEditSave = async (updated: Topic) => {
