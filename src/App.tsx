@@ -22,12 +22,13 @@ interface Topic {
 }
 
 const EC_MEMBERS: Assignee[] = [
-  { name: '会長', color: 'bg-indigo-600' },
+  { name: 'ALL', color: 'bg-slate-600' },
+  { name: 'President', color: 'bg-indigo-600' },
   { name: 'VPE', color: 'bg-emerald-600' },
   { name: 'VPM', color: 'bg-orange-500' },
   { name: 'VPPR', color: 'bg-pink-500' },
-  { name: '書記', color: 'bg-teal-500' },
-  { name: '会計', color: 'bg-violet-500' },
+  { name: 'Secretary', color: 'bg-teal-500' },
+  { name: 'Treasurer', color: 'bg-violet-500' },
   { name: 'SAA', color: 'bg-sky-500' },
 ];
 
@@ -39,7 +40,7 @@ const INITIAL_TOPICS: Topic[] = [
     title: '年間テーマの決定',
     description: '今期のクラブテーマとスローガンを EC で合意する',
     priority: 'HIGH',
-    assignee: { name: '会長', color: 'bg-indigo-600' },
+    assignee: { name: 'President', color: 'bg-indigo-600' },
     column: 'now',
   },
   {
@@ -79,7 +80,7 @@ const INITIAL_TOPICS: Topic[] = [
     title: '年会費・予算計画',
     description: '次期の収支計画を作成し EC で承認する',
     priority: 'LOW',
-    assignee: { name: '会計', color: 'bg-violet-500' },
+    assignee: { name: 'Treasurer', color: 'bg-violet-500' },
     column: 'pool',
   },
   {
