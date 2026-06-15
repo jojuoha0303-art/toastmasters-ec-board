@@ -545,13 +545,22 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // 初期ロード（Realtimeとは独立して即時実行）
     fetchTopics();
 
-    // リアルタイム同期
+    // リアルタイム同期（他デバイスの変更を受信）
     const channel = supabase
       .channel('otmc_topics_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'otmc_topics' }, () => {
-        fetchTopics();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'otmc_topics' }, payload => {
+        const newTopic = rowToTopic(payload.new as DbRow);
+        setTopics(prev => prev.some(t => t.id === newTopic.id) ? prev : [...prev, newTopic]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'otmc_topics' }, payload => {
+        const updated = rowToTopic(payload.new as DbRow);
+        setTopics(prev => prev.map(t => t.id === updated.id ? updated : t));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'otmc_topics' }, payload => {
+        setTopics(prev => prev.filter(t => t.id !== (payload.old as DbRow).id));
       })
       .subscribe();
 
@@ -562,6 +571,7 @@ const App: React.FC = () => {
 
   const handleAddTopic = async (topicData: Omit<Topic, 'id'>) => {
     const newTopic: Topic = { ...topicData, id: `topic-${Date.now()}` };
+    setTopics(prev => [...prev, newTopic]); // 楽観的更新
     await supabase.from('otmc_topics').insert(topicToRow(newTopic));
   };
 
