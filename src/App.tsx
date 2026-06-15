@@ -743,13 +743,52 @@ const App: React.FC = () => {
           </button>
         </div>
 
+        {/* ドキュメントリンク */}
+        <div className="mb-5 bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-4">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Documents</p>
+          <div className="flex flex-wrap gap-3">
+            <a
+              href="https://content.toastmasters.org/image/upload/210C-club-constitution-ff.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors"
+            >
+              📄 Club Constitution (EN)
+            </a>
+            <a
+              href="https://content.toastmasters.org/image/upload/1310-club-leadership-handbook.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors"
+            >
+              📘 Club Leadership Handbook (EN)
+            </a>
+            <a
+              href="http://fields.canpan.info/data/organizations/190/190274/1902740511/files/V0qx7R6s.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition-colors"
+            >
+              📘 クラブリーダーシップハンドブック（日本語）
+            </a>
+            <a
+              href="https://content.toastmasters.org/image/upload/ja-JP1310-Club-Leadership-Handbook.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition-colors"
+            >
+              📘 Club Leadership Handbook（日本語公式）
+            </a>
+          </div>
+        </div>
+
         {/* タイトルカード */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-5 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-start gap-3">
             <span className="text-3xl mt-0.5">🗣</span>
             <div>
               <h1 className="text-2xl font-extrabold text-slate-900">
-                Otemachi Toastmasters
+                Otemachi Toastmasters Club
               </h1>
               <p className="text-slate-500 text-sm mt-0.5">
                 EC議題ディスカッションボード ― カードをドラッグして議論ステータスを管理
