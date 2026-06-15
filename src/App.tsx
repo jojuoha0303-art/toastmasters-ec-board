@@ -525,6 +525,7 @@ function topicToRow(t: Topic): DbRow {
 const App: React.FC = () => {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [copied, setCopied] = useState(false);
@@ -538,8 +539,11 @@ const App: React.FC = () => {
       .from('otmc_topics')
       .select('*')
       .order('created_at', { ascending: true });
-    if (!error && data) {
+    if (error) {
+      setDbError(`読み込みエラー: ${error.message}`);
+    } else if (data) {
       setTopics((data as DbRow[]).map(rowToTopic));
+      setDbError(null);
     }
     setLoading(false);
   }, []);
@@ -574,10 +578,10 @@ const App: React.FC = () => {
     setTopics(prev => [...prev, newTopic]); // 楽観的更新
     const { error } = await supabase.from('otmc_topics').insert(topicToRow(newTopic));
     if (error) {
-      console.error('Insert error:', error);
-      // 失敗したらロールバックして再取得
       setTopics(prev => prev.filter(t => t.id !== newTopic.id));
-      alert(`保存に失敗しました: ${error.message}`);
+      setDbError(`追加エラー: ${error.message} (code: ${error.code})`);
+    } else {
+      setDbError(null);
     }
   };
 
@@ -729,6 +733,13 @@ const App: React.FC = () => {
             議題を追加
           </button>
         </div>
+
+        {/* エラー表示 */}
+        {dbError && (
+          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium">
+            ⚠️ {dbError}
+          </div>
+        )}
 
         {/* ローディング */}
         {loading && (
