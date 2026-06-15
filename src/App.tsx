@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Plus, Copy, RotateCcw, Flame, Clock,
-  SkipForward, Inbox, X, Check, Users, Pencil
+  SkipForward, Inbox, X, Check, Users, Pencil, Loader2
 } from 'lucide-react';
+import { supabase } from './supabase';
 
 type Priority = 'HIGH' | 'MID' | 'LOW';
 type ColumnId = 'pool' | 'now' | 'later' | 'skip';
@@ -31,8 +32,6 @@ const EC_MEMBERS: Assignee[] = [
   { name: 'Treasurer', color: 'bg-violet-500' },
   { name: 'SAA', color: 'bg-sky-500' },
 ];
-
-const STORAGE_KEY = 'otemachi-ec-board-v1';
 
 const INITIAL_TOPICS: Topic[] = [
   {
@@ -482,20 +481,50 @@ const TopicCard: React.FC<TopicCardProps> = ({
   );
 };
 
-// ── App ───────────────────────────────────────────────────────
+// ── DB helpers ────────────────────────────────────────────────
 
-function loadTopics(): Topic[] {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return JSON.parse(saved) as Topic[];
-  } catch {
-    // ignore
-  }
-  return INITIAL_TOPICS;
+type DbRow = {
+  id: string;
+  title: string;
+  description: string;
+  priority: string;
+  assignee_name: string | null;
+  assignee_color: string | null;
+  column_id: string;
+};
+
+function rowToTopic(row: DbRow): Topic {
+  const assignee =
+    row.assignee_name && row.assignee_color
+      ? { name: row.assignee_name, color: row.assignee_color }
+      : null;
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    priority: row.priority as Priority,
+    assignee,
+    column: row.column_id as ColumnId,
+  };
 }
 
+function topicToRow(t: Topic): DbRow {
+  return {
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    priority: t.priority,
+    assignee_name: t.assignee?.name ?? null,
+    assignee_color: t.assignee?.color ?? null,
+    column_id: t.column,
+  };
+}
+
+// ── App ───────────────────────────────────────────────────────
+
 const App: React.FC = () => {
-  const [topics, setTopics] = useState<Topic[]>(loadTopics);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [copied, setCopied] = useState(false);
@@ -503,24 +532,56 @@ const App: React.FC = () => {
   const [dragOverColumn, setDragOverColumn] = useState<ColumnId | null>(null);
   const dragOverRef = useRef<ColumnId | null>(null);
 
-  // localStorage に永続化
+  // 初回ロード
+  const fetchTopics = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('otmc_topics')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (!error && data) {
+      setTopics((data as DbRow[]).map(rowToTopic));
+    }
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(topics));
-  }, [topics]);
+    fetchTopics();
+
+    // リアルタイム同期
+    const channel = supabase
+      .channel('otmc_topics_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'otmc_topics' }, () => {
+        fetchTopics();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchTopics]);
 
   const getTopicsForColumn = (col: ColumnId) => topics.filter(t => t.column === col);
 
-  const handleAddTopic = (topicData: Omit<Topic, 'id'>) => {
-    setTopics(prev => [...prev, { ...topicData, id: `topic-${Date.now()}` }]);
+  const handleAddTopic = async (topicData: Omit<Topic, 'id'>) => {
+    const newTopic: Topic = { ...topicData, id: `topic-${Date.now()}` };
+    await supabase.from('otmc_topics').insert(topicToRow(newTopic));
   };
 
-  const handleDelete = (id: string) => {
-    setTopics(prev => prev.filter(t => t.id !== id));
+  const handleDelete = async (id: string) => {
+    setTopics(prev => prev.filter(t => t.id !== id)); // 楽観的更新
+    await supabase.from('otmc_topics').delete().eq('id', id);
   };
 
-  const handleEditSave = (updated: Topic) => {
+  const handleEditSave = async (updated: Topic) => {
     setTopics(prev => prev.map(t => t.id === updated.id ? updated : t));
     setEditingTopic(null);
+    await supabase.from('otmc_topics').update(topicToRow(updated)).eq('id', updated.id);
+  };
+
+  const handleAssigneeChange = async (id: string, assignee: Assignee | null) => {
+    setTopics(prev => prev.map(t => t.id === id ? { ...t, assignee } : t));
+    await supabase.from('otmc_topics').update({
+      assignee_name: assignee?.name ?? null,
+      assignee_color: assignee?.color ?? null,
+    }).eq('id', id);
   };
 
   const handleCopyMarkdown = () => {
@@ -543,10 +604,10 @@ const App: React.FC = () => {
     });
   };
 
-  const handleReset = () => {
-    if (window.confirm('ボードをリセットしてサンプルデータに戻しますか？')) {
-      setTopics(INITIAL_TOPICS);
-    }
+  const handleReset = async () => {
+    if (!window.confirm('ボードをリセットしてサンプルデータに戻しますか？')) return;
+    await supabase.from('otmc_topics').delete().neq('id', '');
+    await supabase.from('otmc_topics').insert(INITIAL_TOPICS.map(topicToRow));
   };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -574,13 +635,14 @@ const App: React.FC = () => {
     setDragOverColumn(null);
   };
 
-  const handleDrop = (e: React.DragEvent, colId: ColumnId) => {
+  const handleDrop = async (e: React.DragEvent, colId: ColumnId) => {
     e.preventDefault();
     if (!draggingId) return;
     setTopics(prev => prev.map(t => t.id === draggingId ? { ...t, column: colId } : t));
     setDraggingId(null);
     setDragOverColumn(null);
     dragOverRef.current = null;
+    await supabase.from('otmc_topics').update({ column_id: colId }).eq('id', draggingId);
   };
 
   const nowCount = getTopicsForColumn('now').length;
@@ -652,60 +714,68 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        {/* カンバンボード */}
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {COLUMNS.map(col => {
-            const colTopics = getTopicsForColumn(col.id);
-            const isOver = dragOverColumn === col.id;
-            return (
-              <div
-                key={col.id}
-                onDragOver={e => handleColumnDragOver(e, col.id)}
-                onDragLeave={handleColumnDragLeave}
-                onDrop={e => handleDrop(e, col.id)}
-                className={`rounded-2xl border-2 flex flex-col min-h-[400px] min-w-[260px] flex-1 transition-all ${
-                  isOver
-                    ? 'border-indigo-400 bg-indigo-50/60 shadow-lg shadow-indigo-500/20'
-                    : `${col.border} ${col.bg}`
-                }`}
-              >
-                <div className={`px-4 py-3 rounded-t-xl flex items-center justify-between ${col.headerBg}`}>
-                  <div className={`flex items-center gap-2 font-bold text-sm ${col.color}`}>
-                    {col.icon}
-                    {col.label}
-                  </div>
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-white shadow-sm ${col.color}`}>
-                    {colTopics.length}
-                  </span>
-                </div>
+        {/* ローディング */}
+        {loading && (
+          <div className="flex items-center justify-center py-20 text-slate-400 gap-3">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-sm font-medium">データを読み込み中...</span>
+          </div>
+        )}
 
-                <div className="flex-1 p-3 space-y-3">
-                  {colTopics.length === 0 && (
-                    <div className={`border-2 border-dashed rounded-xl p-6 text-center text-xs font-medium ${
-                      isOver ? 'border-indigo-400 text-indigo-500' : 'border-slate-300 text-slate-400'
-                    }`}>
-                      {isOver ? 'ここにドロップ' : 'カードをここにドラッグ'}
+        {/* カンバンボード */}
+        {!loading && (
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {COLUMNS.map(col => {
+              const colTopics = getTopicsForColumn(col.id);
+              const isOver = dragOverColumn === col.id;
+              return (
+                <div
+                  key={col.id}
+                  onDragOver={e => handleColumnDragOver(e, col.id)}
+                  onDragLeave={handleColumnDragLeave}
+                  onDrop={e => handleDrop(e, col.id)}
+                  className={`rounded-2xl border-2 flex flex-col min-h-[400px] min-w-[260px] flex-1 transition-all ${
+                    isOver
+                      ? 'border-indigo-400 bg-indigo-50/60 shadow-lg shadow-indigo-500/20'
+                      : `${col.border} ${col.bg}`
+                  }`}
+                >
+                  <div className={`px-4 py-3 rounded-t-xl flex items-center justify-between ${col.headerBg}`}>
+                    <div className={`flex items-center gap-2 font-bold text-sm ${col.color}`}>
+                      {col.icon}
+                      {col.label}
                     </div>
-                  )}
-                  {colTopics.map(topic => (
-                    <TopicCard
-                      key={topic.id}
-                      topic={topic}
-                      isDragging={draggingId === topic.id}
-                      onDragStart={handleDragStart}
-                      onDragEnd={handleDragEnd}
-                      onDelete={handleDelete}
-                      onEdit={setEditingTopic}
-                      onAssigneeChange={(id, assignee) => {
-                        setTopics(prev => prev.map(t => t.id === id ? { ...t, assignee } : t));
-                      }}
-                    />
-                  ))}
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-white shadow-sm ${col.color}`}>
+                      {colTopics.length}
+                    </span>
+                  </div>
+
+                  <div className="flex-1 p-3 space-y-3">
+                    {colTopics.length === 0 && (
+                      <div className={`border-2 border-dashed rounded-xl p-6 text-center text-xs font-medium ${
+                        isOver ? 'border-indigo-400 text-indigo-500' : 'border-slate-300 text-slate-400'
+                      }`}>
+                        {isOver ? 'ここにドロップ' : 'カードをここにドラッグ'}
+                      </div>
+                    )}
+                    {colTopics.map(topic => (
+                      <TopicCard
+                        key={topic.id}
+                        topic={topic}
+                        isDragging={draggingId === topic.id}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onDelete={handleDelete}
+                        onEdit={setEditingTopic}
+                        onAssigneeChange={handleAssigneeChange}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {showAddModal && (
