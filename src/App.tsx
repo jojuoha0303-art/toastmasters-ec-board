@@ -3,7 +3,38 @@ import {
   Plus, Copy, RotateCcw, Flame, Clock,
   SkipForward, Inbox, X, Check, Users, Pencil, Loader2
 } from 'lucide-react';
-import { supabase } from './supabase';
+
+// API helpers（Vercel API Route経由でSupabaseへ）
+const api = {
+  async getTopics(): Promise<DbRow[]> {
+    const r = await fetch('/api/topics');
+    if (!r.ok) throw new Error(`fetch failed: ${r.status}`);
+    return r.json();
+  },
+  async insertTopic(row: DbRow): Promise<void> {
+    const r = await fetch('/api/topics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(row),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.message || `insert failed: ${r.status}`);
+    }
+  },
+  async updateTopic(id: string, patch: Partial<DbRow>): Promise<void> {
+    const r = await fetch(`/api/topics/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    if (!r.ok) throw new Error(`update failed: ${r.status}`);
+  },
+  async deleteTopic(id: string): Promise<void> {
+    const r = await fetch(`/api/topics/${id}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error(`delete failed: ${r.status}`);
+  },
+};
 
 type Priority = 'HIGH' | 'MID' | 'LOW';
 type ColumnId = 'pool' | 'now' | 'later' | 'skip';
@@ -533,75 +564,56 @@ const App: React.FC = () => {
   const [dragOverColumn, setDragOverColumn] = useState<ColumnId | null>(null);
   const dragOverRef = useRef<ColumnId | null>(null);
 
-  // 初回ロード
+  // 初回ロード＆ポーリング（30秒ごとに他デバイスの変更を反映）
   const fetchTopics = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('otmc_topics')
-      .select('*')
-      .order('created_at', { ascending: true });
-    if (error) {
-      setDbError(`読み込みエラー: ${error.message}`);
-    } else if (data) {
-      setTopics((data as DbRow[]).map(rowToTopic));
+    try {
+      const data = await api.getTopics();
+      setTopics(data.map(rowToTopic));
       setDbError(null);
+    } catch (e) {
+      setDbError(`読み込みエラー: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
-    // 初期ロード（Realtimeとは独立して即時実行）
     fetchTopics();
-
-    // リアルタイム同期（他デバイスの変更を受信）
-    const channel = supabase
-      .channel('otmc_topics_changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'otmc_topics' }, payload => {
-        const newTopic = rowToTopic(payload.new as DbRow);
-        setTopics(prev => prev.some(t => t.id === newTopic.id) ? prev : [...prev, newTopic]);
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'otmc_topics' }, payload => {
-        const updated = rowToTopic(payload.new as DbRow);
-        setTopics(prev => prev.map(t => t.id === updated.id ? updated : t));
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'otmc_topics' }, payload => {
-        setTopics(prev => prev.filter(t => t.id !== (payload.old as DbRow).id));
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    const timer = setInterval(fetchTopics, 30000); // 30秒ポーリング
+    return () => clearInterval(timer);
   }, [fetchTopics]);
 
   const getTopicsForColumn = (col: ColumnId) => topics.filter(t => t.column === col);
 
   const handleAddTopic = async (topicData: Omit<Topic, 'id'>) => {
     const newTopic: Topic = { ...topicData, id: `topic-${Date.now()}` };
-    setTopics(prev => [...prev, newTopic]); // 楽観的更新
-    const { error } = await supabase.from('otmc_topics').insert(topicToRow(newTopic));
-    if (error) {
-      setTopics(prev => prev.filter(t => t.id !== newTopic.id));
-      setDbError(`追加エラー: ${error.message} (code: ${error.code})`);
-    } else {
+    setTopics(prev => [...prev, newTopic]);
+    try {
+      await api.insertTopic(topicToRow(newTopic));
       setDbError(null);
+    } catch (e) {
+      setTopics(prev => prev.filter(t => t.id !== newTopic.id));
+      setDbError(`追加エラー: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
   const handleDelete = async (id: string) => {
-    setTopics(prev => prev.filter(t => t.id !== id)); // 楽観的更新
-    await supabase.from('otmc_topics').delete().eq('id', id);
+    setTopics(prev => prev.filter(t => t.id !== id));
+    await api.deleteTopic(id).catch(() => fetchTopics());
   };
 
   const handleEditSave = async (updated: Topic) => {
     setTopics(prev => prev.map(t => t.id === updated.id ? updated : t));
     setEditingTopic(null);
-    await supabase.from('otmc_topics').update(topicToRow(updated)).eq('id', updated.id);
+    await api.updateTopic(updated.id, topicToRow(updated)).catch(() => fetchTopics());
   };
 
   const handleAssigneeChange = async (id: string, assignee: Assignee | null) => {
     setTopics(prev => prev.map(t => t.id === id ? { ...t, assignee } : t));
-    await supabase.from('otmc_topics').update({
+    await api.updateTopic(id, {
       assignee_name: assignee?.name ?? null,
       assignee_color: assignee?.color ?? null,
-    }).eq('id', id);
+    }).catch(() => fetchTopics());
   };
 
   const handleCopyMarkdown = () => {
@@ -626,8 +638,9 @@ const App: React.FC = () => {
 
   const handleReset = async () => {
     if (!window.confirm('ボードをリセットしてサンプルデータに戻しますか？')) return;
-    await supabase.from('otmc_topics').delete().neq('id', '');
-    await supabase.from('otmc_topics').insert(INITIAL_TOPICS.map(topicToRow));
+    for (const t of topics) await api.deleteTopic(t.id).catch(() => {});
+    for (const t of INITIAL_TOPICS) await api.insertTopic(topicToRow(t)).catch(() => {});
+    await fetchTopics();
   };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -658,11 +671,12 @@ const App: React.FC = () => {
   const handleDrop = async (e: React.DragEvent, colId: ColumnId) => {
     e.preventDefault();
     if (!draggingId) return;
-    setTopics(prev => prev.map(t => t.id === draggingId ? { ...t, column: colId } : t));
+    const id = draggingId;
+    setTopics(prev => prev.map(t => t.id === id ? { ...t, column: colId } : t));
     setDraggingId(null);
     setDragOverColumn(null);
     dragOverRef.current = null;
-    await supabase.from('otmc_topics').update({ column_id: colId }).eq('id', draggingId);
+    await api.updateTopic(id, { column_id: colId }).catch(() => fetchTopics());
   };
 
   const nowCount = getTopicsForColumn('now').length;
