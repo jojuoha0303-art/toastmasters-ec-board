@@ -572,7 +572,13 @@ const App: React.FC = () => {
   const handleAddTopic = async (topicData: Omit<Topic, 'id'>) => {
     const newTopic: Topic = { ...topicData, id: `topic-${Date.now()}` };
     setTopics(prev => [...prev, newTopic]); // 楽観的更新
-    await supabase.from('otmc_topics').insert(topicToRow(newTopic));
+    const { error } = await supabase.from('otmc_topics').insert(topicToRow(newTopic));
+    if (error) {
+      console.error('Insert error:', error);
+      // 失敗したらロールバックして再取得
+      setTopics(prev => prev.filter(t => t.id !== newTopic.id));
+      alert(`保存に失敗しました: ${error.message}`);
+    }
   };
 
   const handleDelete = async (id: string) => {
