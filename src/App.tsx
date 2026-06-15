@@ -652,7 +652,7 @@ const App: React.FC = () => {
         </div>
 
         {/* カンバンボード */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="flex gap-4 overflow-x-auto pb-2">
           {COLUMNS.map(col => {
             const colTopics = getTopicsForColumn(col.id);
             const isOver = dragOverColumn === col.id;
@@ -662,7 +662,7 @@ const App: React.FC = () => {
                 onDragOver={e => handleColumnDragOver(e, col.id)}
                 onDragLeave={handleColumnDragLeave}
                 onDrop={e => handleDrop(e, col.id)}
-                className={`rounded-2xl border-2 flex flex-col min-h-[400px] transition-all ${
+                className={`rounded-2xl border-2 flex flex-col min-h-[400px] min-w-[260px] flex-1 transition-all ${
                   isOver
                     ? 'border-indigo-400 bg-indigo-50/60 shadow-lg shadow-indigo-500/20'
                     : `${col.border} ${col.bg}`
