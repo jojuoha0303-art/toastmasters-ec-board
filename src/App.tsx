@@ -652,7 +652,7 @@ const App: React.FC = () => {
         </div>
 
         {/* カンバンボード */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {COLUMNS.map(col => {
             const colTopics = getTopicsForColumn(col.id);
             const isOver = dragOverColumn === col.id;
