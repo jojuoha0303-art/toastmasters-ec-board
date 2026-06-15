@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Plus, Copy, RotateCcw, Flame, Clock,
+  Plus, Copy, Flame, Clock,
   SkipForward, Inbox, X, Check, Users, Pencil, Loader2
 } from 'lucide-react';
 
@@ -670,14 +670,7 @@ const App: React.FC = () => {
     });
   };
 
-  const handleReset = async () => {
-    if (!window.confirm('ボードをリセットしてサンプルデータに戻しますか？')) return;
-    for (const t of topics) await api.deleteTopic(t.id).catch(() => {});
-    for (const t of INITIAL_TOPICS) await api.insertTopic(topicToRow(t)).catch(() => {});
-    await fetchTopics();
-  };
-
-  const handleDragStart = (e: React.DragEvent, id: string) => {
+const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggingId(id);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -733,13 +726,6 @@ const App: React.FC = () => {
           >
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             {copied ? 'コピー完了！' : 'Markdownコピー'}
-          </button>
-          <button
-            onClick={handleReset}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-slate-300 bg-white text-slate-600 hover:border-slate-400 font-semibold text-sm transition-all"
-          >
-            <RotateCcw className="w-4 h-4" />
-            リセット
           </button>
         </div>
 
