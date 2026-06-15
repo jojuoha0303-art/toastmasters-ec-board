@@ -423,6 +423,7 @@ const TopicCard: React.FC<TopicCardProps> = ({
   topic, isDragging, onDragStart, onDragEnd, onDelete, onEdit, onAssigneeChange,
 }) => {
   const [showAssignMenu, setShowAssignMenu] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <div
@@ -444,7 +445,7 @@ const TopicCard: React.FC<TopicCardProps> = ({
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => onDelete(topic.id)}
+            onClick={() => setConfirmDelete(true)}
             className="text-slate-300 hover:text-red-400 transition-colors"
             title="削除"
           >
@@ -452,6 +453,27 @@ const TopicCard: React.FC<TopicCardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* 削除確認 */}
+      {confirmDelete && (
+        <div className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-xs font-semibold text-red-700 mb-2">この議題を削除しますか？</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { onDelete(topic.id); setConfirmDelete(false); }}
+              className="flex-1 py-1 rounded-md bg-red-500 text-white text-xs font-bold hover:bg-red-600 transition-colors"
+            >
+              削除する
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="flex-1 py-1 rounded-md bg-white border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors"
+            >
+              キャンセル
+            </button>
+          </div>
+        </div>
+      )}
 
       {topic.description && (
         <p className="text-xs text-slate-500 leading-relaxed mb-3">{topic.description}</p>

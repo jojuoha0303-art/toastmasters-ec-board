@@ -27,8 +27,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method === 'DELETE') {
+    // 論理削除: deleted フラグを true にするだけ
     const r = await fetch(`${SUPABASE_URL}/rest/v1/otmc_topics?id=eq.${id}`, {
-      method: 'DELETE', headers,
+      method: 'PATCH', headers, body: JSON.stringify({ deleted: true }),
     });
     return res.status(r.status).end();
   }

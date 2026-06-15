@@ -17,7 +17,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'GET') {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/otmc_topics?select=*&order=created_at.asc`, { headers });
+    // 論理削除されていないものだけ取得
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/otmc_topics?select=*&deleted=eq.false&order=created_at.asc`, { headers });
     const data = await r.json();
     return res.status(r.status).json(data);
   }
