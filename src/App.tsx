@@ -719,6 +719,7 @@ const handleDragStart = (e: React.DragEvent, id: string) => {
 
   const nowCount = getTopicsForColumn('now').length;
   const laterCount = getTopicsForColumn('later').length;
+  const doneCount = getTopicsForColumn('done').length;
   const unassigned = topics.filter(t => !t.assignee).length;
 
   return (
@@ -797,6 +798,7 @@ const handleDragStart = (e: React.DragEvent, id: string) => {
               { label: '議題総数', value: topics.length, color: 'text-slate-800' },
               { label: '今すぐ', value: nowCount, color: 'text-red-600' },
               { label: '後で', value: laterCount, color: 'text-amber-600' },
+              { label: '完了', value: doneCount, color: 'text-emerald-600' },
               { label: '未割当', value: unassigned, color: 'text-slate-500' },
             ].map(stat => (
               <div key={stat.label} className="text-center min-w-[60px]">
