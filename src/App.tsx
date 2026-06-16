@@ -741,6 +741,37 @@ const handleDragStart = (e: React.DragEvent, id: string) => {
           </button>
         </div>
 
+        {/* クイックリンク */}
+        <div className="mb-4 bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-4">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Quick Links</p>
+          <div className="flex flex-wrap gap-3">
+            <a
+              href="https://otemachi.blog/toastmasters/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
+            >
+              🌐 OTMC ホームページ
+            </a>
+            <a
+              href="https://tmcsupport.coresv.com/otemachiko/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700 text-white text-xs font-semibold hover:bg-slate-800 transition-colors"
+            >
+              ⚙️ クラブサポートシステム
+            </a>
+            <a
+              href="https://otemachi.blog/toastmasters/otmc-online-meeting/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors"
+            >
+              🎥 オンラインミーティング
+            </a>
+          </div>
+        </div>
+
         {/* ドキュメントリンク */}
         <div className="mb-5 bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-4">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Documents</p>
