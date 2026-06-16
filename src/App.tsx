@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Plus, Copy, Flame, Clock,
-  SkipForward, Inbox, X, Check, Users, Pencil, Loader2
+  SkipForward, Inbox, X, Check, Users, Pencil, Loader2, CheckCircle2
 } from 'lucide-react';
 
 // API helpers（Vercel API Route経由でSupabaseへ）
@@ -37,7 +37,7 @@ const api = {
 };
 
 type Priority = 'HIGH' | 'MID' | 'LOW';
-type ColumnId = 'pool' | 'now' | 'later' | 'skip';
+type ColumnId = 'pool' | 'now' | 'later' | 'skip' | 'done';
 
 interface Assignee {
   name: string;
@@ -168,6 +168,15 @@ const COLUMNS: {
     bg: 'bg-slate-50/60',
     border: 'border-slate-200',
   },
+  {
+    id: 'done',
+    label: '完了',
+    icon: <CheckCircle2 className="w-4 h-4" />,
+    color: 'text-emerald-600',
+    headerBg: 'bg-emerald-50',
+    bg: 'bg-emerald-50/40',
+    border: 'border-emerald-200',
+  },
 ];
 
 const PRIORITY_STYLES: Record<Priority, string> = {
@@ -269,6 +278,7 @@ const AddTopicModal: React.FC<AddTopicModalProps> = ({ onClose, onAdd }) => {
               <option value="now">今すぐ議論</option>
               <option value="later">後で検討</option>
               <option value="skip">見送り</option>
+              <option value="done">完了</option>
             </select>
           </div>
           <div className="flex gap-3 pt-2">
@@ -384,6 +394,7 @@ const EditTopicModal: React.FC<EditTopicModalProps> = ({ topic, onClose, onSave 
               <option value="now">今すぐ議論</option>
               <option value="later">後で検討</option>
               <option value="skip">見送り</option>
+              <option value="done">完了</option>
             </select>
           </div>
           <div className="flex gap-3 pt-2">
